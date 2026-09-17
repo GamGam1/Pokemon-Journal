@@ -156,7 +156,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
+*.env
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# macOS
+.DS_Store
+
+# Frontend (for when you add React in October)
+frontend/node_modules/
+frontend/.env.local
