@@ -6,7 +6,7 @@ class JournalEntry(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     detected_themes = models.JSONField(default=list, blank=True)
-    pokemon_song = models.JSONField(default=dict, blank=True)
+    pokemon_song = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ['-created_at']
