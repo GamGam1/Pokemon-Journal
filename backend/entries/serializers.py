@@ -34,3 +34,10 @@ class JournalEntrySerializer(serializers.ModelSerializer):
             'pokemon_song',
         ]
         read_only_fields = ['created_at']
+    
+    def validate_content(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Entry content cannot be blank.")
+        if len(value) > 5000:
+            raise serializers.ValidationError("Entry content cannot exceed 5000 characters.")
+        return value
