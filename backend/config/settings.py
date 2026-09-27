@@ -157,6 +157,16 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_BEAT_SCHEDULE = {
     'weekly-mood-report': {
         'task': 'entries.tasks.generate_weekly_report',
-        'schedule': crontab(minute='*/1')#hour=9, day_of_week=1),  # Every Monday at 9am
+        'schedule': crontab(hour=9, day_of_week=1),  # Every Monday at 9am
     },
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URL", "redis://localhost:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
 }

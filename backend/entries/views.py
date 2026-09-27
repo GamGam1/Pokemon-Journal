@@ -5,6 +5,7 @@ from .models import JournalEntry
 from .serializers import JournalEntrySerializer, UserSerializer
 from analysis.tasks import analyze_entry_task
 from collections import Counter
+from django.core.cache import cache
 
 
 class RegisterView(generics.CreateAPIView):
@@ -25,21 +26,28 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
         entry = serializer.save(user=self.request.user)
         #claude api, async
         analyze_entry_task.delay(entry.id)
+        #bust cache when user adds new entry
+        cache.delete(f"patterns_user_{self.request.user.id}")
         
     @action(detail=False, methods=["get"])
     def patterns(self, request):
+        cache_key = f"patterns_user_{request.user.id}"
+        cached = cache.get(cache_key)
+
+        if cached:
+            return Response(cached)
+
         entries = self.get_queryset()
-        
-        # flatten all themes from all entries into one list
         all_themes = []
         for entry in entries:
             all_themes.extend(entry.detected_themes)
-        
-        # count frequency of each theme
+
         theme_counts = Counter(all_themes)
-        
-        return Response({
+        data = {
             "total_entries": entries.count(),
             "theme_frequency": theme_counts.most_common(),
             "top_theme": theme_counts.most_common(1)[0] if theme_counts else None
-        })
+        }
+
+        cache.set(cache_key, data, timeout=60 * 15)  # cache for 15 minutes
+        return Response(data)
