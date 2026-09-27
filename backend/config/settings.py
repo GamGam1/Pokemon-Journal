@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
+from celery.schedules import crontab
 import os
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -44,7 +45,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'entries',
     'analysis',
-    'django_celery_results', 
+    'django_celery_results',
+    'django_celery_beat', 
 ]
 
 MIDDLEWARE = [
@@ -149,3 +151,12 @@ CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
+
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+CELERY_BEAT_SCHEDULE = {
+    'weekly-mood-report': {
+        'task': 'entries.tasks.generate_weekly_report',
+        'schedule': crontab(minute='*/1')#hour=9, day_of_week=1),  # Every Monday at 9am
+    },
+}
