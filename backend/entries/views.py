@@ -6,6 +6,9 @@ from .serializers import JournalEntrySerializer, UserSerializer
 from analysis.tasks import analyze_entry_task
 from collections import Counter
 from django.core.cache import cache
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+
 
 
 class RegisterView(generics.CreateAPIView):
@@ -16,6 +19,11 @@ class RegisterView(generics.CreateAPIView):
 class JournalEntryViewSet(viewsets.ModelViewSet):
     serializer_class = JournalEntrySerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['processing_status']
+    search_fields = ['content']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         # users only ever see their own entries

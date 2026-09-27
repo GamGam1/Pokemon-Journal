@@ -4,6 +4,8 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from .models import JournalEntry
 from unittest.mock import patch
+from django.conf import settings
+settings.REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
 
 User = get_user_model()
 
@@ -35,7 +37,7 @@ def auth_client(client, user):
 @pytest.fixture
 def mock_analyze():
     # mock Claude API so tests don't make real API calls
-    with patch('entries.views.analyze_entry') as mock:
+    with patch('analysis.tasks.analyze_entry') as mock:
         mock.return_value = {
             "themes": ["hopeful"],
             "songs": [{"title": "Pokemon Theme", "artist": "Jason Paige", "game": "Pokemon Anime"}]
@@ -70,8 +72,7 @@ def test_authenticated_user_can_create_entry(auth_client, mock_analyze):
         'content': 'Today was a great day full of hope.'
     }, format='json')
     assert response.status_code == status.HTTP_201_CREATED
-    assert response.data['detected_themes'] == ['hopeful']
-    assert len(response.data['pokemon_song']) == 1
+    assert response.data['processing_status'] == 'pending'  # async now
 
 
 @pytest.mark.django_db
@@ -79,8 +80,8 @@ def test_themes_and_songs_populated_on_create(auth_client, mock_analyze):
     response = auth_client.post('/api/entries/', {
         'content': 'Feeling good today.'
     }, format='json')
-    assert response.data['detected_themes'] != []
-    assert response.data['pokemon_song'] != []
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.data['processing_status'] == 'pending'
 
 
 @pytest.mark.django_db
@@ -108,7 +109,7 @@ def test_user_can_only_see_own_entries(client, db):
     # user2 should see empty list
     response = client.get('/api/entries/')
     assert response.status_code == status.HTTP_200_OK
-    assert len(response.data) == 0
+    assert response.data['count'] == 0
 
 
 # --- VALIDATION TESTS ---
@@ -151,3 +152,45 @@ def test_patterns_endpoint_returns_theme_frequency(auth_client, user):
     # hopeful appears twice so should be top theme
     assert response.data['top_theme'][0] == 'hopeful'
     assert response.data['top_theme'][1] == 2
+
+# --- CELERY TASK TESTS ---
+
+@pytest.mark.django_db
+@patch('analysis.tasks.analyze_entry')
+def test_analyze_task_sets_done_status(mock_analyze, user):
+    mock_analyze.return_value = {
+        "themes": ["hopeful"],
+        "songs": [{"title": "Pokemon Theme", "artist": "Jason Paige", "game": "Pokemon Anime"}]
+    }
+    entry = JournalEntry.objects.create(
+        user=user,
+        content="Feeling hopeful today!",
+    )
+    from analysis.tasks import analyze_entry_task
+    analyze_entry_task(entry.id)
+    entry.refresh_from_db()
+    assert entry.processing_status == 'done'
+    assert entry.detected_themes == ["hopeful"]
+
+
+@pytest.mark.django_db
+@patch('analysis.tasks.analyze_entry')
+def test_analyze_task_sets_failed_status_on_error(mock_analyze, user):
+    from celery.exceptions import MaxRetriesExceededError
+    from unittest.mock import MagicMock
+    mock_analyze.side_effect = Exception("API error")
+    entry = JournalEntry.objects.create(
+        user=user,
+        content="Test entry",
+    )
+    from analysis.tasks import analyze_entry_task
+
+    # Simulate the task with self.retry raising MaxRetriesExceededError
+    with patch.object(analyze_entry_task, 'retry', side_effect=MaxRetriesExceededError()):
+        try:
+            analyze_entry_task(entry.id)
+        except Exception:
+            pass
+
+    entry.refresh_from_db()
+    assert entry.processing_status == 'failed'

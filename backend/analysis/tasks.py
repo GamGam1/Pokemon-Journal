@@ -21,8 +21,6 @@ def analyze_entry_task(self, entry_id: int):
         pass
     except Exception as exc:
         try:
-            entry.processing_status = 'processing'
-            entry.save()
             raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
         except MaxRetriesExceededError:
             entry.processing_status = 'failed'
