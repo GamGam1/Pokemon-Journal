@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import JournalEntry
 from .serializers import JournalEntrySerializer, UserSerializer
-from analysis.services import analyze_entry
+from analysis.tasks import analyze_entry_task
 from collections import Counter
 
 
@@ -23,12 +23,9 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # automatically attach the logged-in user on save
         entry = serializer.save(user=self.request.user)
-        #claude api
-        result = analyze_entry(entry.content)
-        entry.detected_themes = result["themes"]
-        entry.pokemon_song = result["songs"]  # now a list
-        entry.save()
-    
+        #claude api, async
+        analyze_entry_task.delay(entry.id)
+        
     @action(detail=False, methods=["get"])
     def patterns(self, request):
         entries = self.get_queryset()

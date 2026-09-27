@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'entries',
     'analysis',
+    'django_celery_results', 
 ]
 
 MIDDLEWARE = [
@@ -143,3 +144,8 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+# Celery
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
