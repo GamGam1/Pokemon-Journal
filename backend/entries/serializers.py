@@ -32,8 +32,9 @@ class JournalEntrySerializer(serializers.ModelSerializer):
             'created_at',
             'detected_themes',
             'pokemon_song',
+            'processing_status',
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'processing_status']
     
     def validate_content(self, value):
         if not value or not value.strip():

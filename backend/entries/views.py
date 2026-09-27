@@ -51,3 +51,12 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
 
         cache.set(cache_key, data, timeout=60 * 15)  # cache for 15 minutes
         return Response(data)
+    
+    @action(detail=True, methods=["get"])
+    def status(self, request, pk=None):
+        entry = self.get_object()
+        return Response({
+            "id": entry.id,
+            "processing_status": entry.processing_status,
+            "has_themes": len(entry.detected_themes) > 0
+        })
